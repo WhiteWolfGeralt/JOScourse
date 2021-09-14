@@ -114,7 +114,19 @@ InitGraphics (
   // Hint: Use GetMode/SetMode functions.
   //
 
+  UINT32 MyHorizontalResolution = 1600, MyVerticalResolution = 900;
+  UINT32 MaxMode = GraphicsOutput->Mode->MaxMode;
 
+  for (UINT32 CurrentMode = 0; CurrentMode < MaxMode; CurrentMode++) {
+    GraphicsOutput->QueryMode(GraphicsOutput, CurrentMode, &(GraphicsOutput->Mode->SizeOfInfo), &(GraphicsOutput->Mode->Info));
+    UINT32 CurrentHorizontalResolution = GraphicsOutput->Mode->Info->HorizontalResolution;
+    UINT32 CurrentVerticalResolution = GraphicsOutput->Mode->Info->VerticalResolution;
+
+    if ((MyHorizontalResolution == CurrentHorizontalResolution) && (MyVerticalResolution == CurrentVerticalResolution)) { // Find number of mode with my resolution
+      GraphicsOutput->SetMode(GraphicsOutput, CurrentMode);
+      CurrentMode = MaxMode; // Out of cycle "for"
+    }
+  }
   //
   // Fill screen with black.
   //
@@ -977,12 +989,12 @@ UefiMain (
   UINTN              EntryPoint;
   VOID               *GateData;
 
-#if 1 ///< Uncomment to await debugging
+#if 0 ///< Uncomment to await debugging
   volatile BOOLEAN   Connected;
   DEBUG ((DEBUG_INFO, "JOS: Awaiting debugger connection\n"));
 
   Connected = FALSE;
-  while (!Connected) {
+  while (Connected) {
     ;
   }
 #endif
