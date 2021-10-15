@@ -12,6 +12,7 @@
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
 #include <kern/env.h>
+#include <kern/trap.h>
 
 #define WHITESPACE "\t\r\n "
 #define MAXARGS    16
@@ -20,6 +21,7 @@
 int mon_help(int argc, char **argv, struct Trapframe *tf);
 int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
+int mon_dumpcmos(int argc, char **argv, struct Trapframe *tf);
 
 struct Command {
     const char *name;
@@ -32,6 +34,7 @@ static struct Command commands[] = {
         {"help", "Display this list of commands", mon_help},
         {"kerninfo", "Display information about the kernel", mon_kerninfo},
         {"backtrace", "Print stack backtrace", mon_backtrace},
+        {"dumpcmos", "Print CMOS contents", mon_dumpcmos},
 };
 #define NCOMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -81,6 +84,18 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf) {
     return 0;
 }
 
+int
+mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
+    // Dump CMOS memory in the following format:
+    // 00: 00 11 22 33 44 55 66 77 88 99 AA BB CC DD EE FF
+    // 10: 00 ..
+    // Make sure you understand the values read.
+    // Hint: Use cmos_read8()/cmos_write8() functions.
+    // LAB 4: Your code here
+
+    return 0;
+}
+
 /* Kernel monitor command interpreter */
 
 static int
@@ -122,7 +137,13 @@ monitor(struct Trapframe *tf) {
 
     cprintf("Welcome to the JOS kernel monitor!\n");
     cprintf("Type 'help' for a list of commands.\n");
+<<<<<<< HEAD
     
+=======
+
+    if (tf) print_trapframe(tf);
+
+>>>>>>> lab4
     char *buf;
     do buf = readline("K> ");
     while (!buf || runcmd(buf, tf) >= 0);
