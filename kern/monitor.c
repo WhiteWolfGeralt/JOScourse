@@ -13,6 +13,7 @@
 #include <kern/kdebug.h>
 #include <kern/env.h>
 #include <kern/trap.h>
+#include <kern/kclock.h>
 
 #define WHITESPACE "\t\r\n "
 #define MAXARGS    16
@@ -92,7 +93,16 @@ mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
     // Make sure you understand the values read.
     // Hint: Use cmos_read8()/cmos_write8() functions.
     // LAB 4: Your code here
-
+    size_t offset = 0x0;
+    for (size_t i = CMOS_START; i < CMOS_SIZE + CMOS_START; ++i) {
+        if (offset % 0x10 == 0) {
+            if (offset) cprintf("\n");
+            cprintf("%02lx: ", offset);
+        }
+        cprintf("%02x ", cmos_read8(i));
+        offset++;
+    }
+    cprintf("\n");
     return 0;
 }
 
@@ -137,13 +147,8 @@ monitor(struct Trapframe *tf) {
 
     cprintf("Welcome to the JOS kernel monitor!\n");
     cprintf("Type 'help' for a list of commands.\n");
-<<<<<<< HEAD
-    
-=======
 
     if (tf) print_trapframe(tf);
-
->>>>>>> lab4
     char *buf;
     do buf = readline("K> ");
     while (!buf || runcmd(buf, tf) >= 0);
