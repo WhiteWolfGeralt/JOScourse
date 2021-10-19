@@ -170,7 +170,8 @@ env_alloc(struct Env **newenv_store, envid_t parent_id, enum EnvType type) {
     env_free_list = env->env_link;
     *newenv_store = env;
 
-    if (trace_envs) cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, env->env_id);
+    if (trace_envs) 
+        cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, env->env_id);
     return 0;
 }
 
@@ -314,7 +315,8 @@ void
 env_free(struct Env *env) {
 
     /* Note the environment's demise. */
-    if (trace_envs) cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, env->env_id);
+    if (trace_envs) 
+        cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, env->env_id);
 
     /* Return the environment to the free list */
     env->env_status = ENV_FREE;
