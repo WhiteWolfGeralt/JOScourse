@@ -33,6 +33,7 @@ mmio_map_region(physaddr_t pa, size_t size) {
     map_addr_early_boot(pa, pa, size);
     return (void *)org;
 }
+
 void *
 mmio_remap_last_region(physaddr_t pa, void *addr, size_t oldsz, size_t newsz) {
     return mmio_map_region(pa, newsz);
@@ -88,6 +89,43 @@ acpi_find_table(const char *sign) {
      */
 
     // LAB 5: Your code here
+    //169-170 page in ACPI Specification
+   
+    RSDT *krsdt; 
+    size_t krsdt_len, krsdt_size = 4; // 4*n An array of 32-bit physical addresses that point to other DESCRIPTION_HEADERs.
+
+    //Root System Description Table (RSDT)
+    RSDP *krsdp = mmio_map_region(uefi_lp->ACPIRoot, sizeof(RSDP));
+    uint64_t rsdt_pa = krsdp->RsdtAddress;
+
+    //Extended System Description Table (XSDT)
+    if (krsdp->Revision) { // An ACPI-compatible OS must use the XSDT if present. 
+        rsdt_pa = krsdp->XsdtAddress;
+        krsdt_size = 8; //8*n An array of 64-bit physical addresses that point to other DESCRIPTION_HEADERs.
+    }
+
+    krsdt = mmio_map_region(rsdt_pa, sizeof(RSDT));
+    //Can define size only after read header
+    krsdt = mmio_map_region(rsdt_pa, krsdt->h.Length);
+    krsdt_len = (krsdt->h.Length - sizeof(RSDT)) / 4;
+    if (krsdp->Revision) { 
+        krsdt_len /= 2; 
+    }
+
+    ACPISDTHeader *head = NULL;
+    for (size_t i = 0; i < krsdt_len; i++) {
+        //The Fixed ACPI Description Table (FADT)
+        uint64_t pa_fadt = 0;
+        memcpy(&pa_fadt, (uint8_t *)krsdt->PointerToOtherSDT + i * krsdt_size, krsdt_size);
+        head = mmio_map_region(pa_fadt, sizeof(ACPISDTHeader));
+        //Can define size only after read header
+        head = mmio_map_region(pa_fadt, head->Length);
+
+        //sign - input value
+        if (!strncmp(head->Signature, sign, 4)) { 
+            return head; 
+        }
+    }
 
     return NULL;
 }
@@ -99,9 +137,8 @@ get_fadt(void) {
     // (use acpi_find_table)
     // HINT: ACPI table signatures are
     //       not always as their names
-
     static FADT *kfadt;
-
+    kfadt = acpi_find_table("FACP");
     return kfadt;
 }
 
@@ -110,9 +147,8 @@ HPET *
 get_hpet(void) {
     // LAB 5: Your code here
     // (use acpi_find_table)
-
     static HPET *khpet;
-
+    khpet = acpi_find_table("HPET");
     return khpet;
 }
 
@@ -210,15 +246,32 @@ hpet_get_main_cnt(void) {
  * HINT To be able to use HPET as PIT replacement consult
  *      LegacyReplacement functionality in HPET spec.
  * HINT Don't forget to unmask interrupt in PIC */
+
+
+// -----------------LAB 5----------------------//
+//Timer N Configuration and Capabilities Register. 16-17 page in IA-PC HPET
+//Number of bits
+uint64_t TN_INT_TYPE_CNF = 0b1; //1st bit
+uint64_t TN_INT_ENB_CNF = 0b10; //2nd bit
+uint64_t TN_TYPE_CNF = 0b100; //3rd bit
+uint64_t TN_VAL_SET_CNF = 0b100000; //6th bit
+
 void
 hpet_enable_interrupts_tim0(void) {
     // LAB 5: Your code here
-
+    hpetReg->GEN_CONF |= TN_INT_TYPE_CNF;
+    hpetReg->TIM0_CONF = (IRQ_TIMER << 9) | TN_TYPE_CNF | TN_INT_ENB_CNF | TN_VAL_SET_CNF;
+    hpetReg->TIM0_COMP = hpet_get_main_cnt() + Peta / 2 / hpetFemto;
+    hpetReg->TIM0_COMP = Peta / 2 / hpetFemto;
 }
 
 void
 hpet_enable_interrupts_tim1(void) {
     // LAB 5: Your code here
+    hpetReg->GEN_CONF |= TN_INT_TYPE_CNF;
+    hpetReg->TIM1_CONF = (IRQ_CLOCK << 9) | TN_TYPE_CNF | TN_INT_ENB_CNF | TN_VAL_SET_CNF;
+    hpetReg->TIM1_COMP = hpet_get_main_cnt() + Peta * 3/2 / hpetFemto;
+    hpetReg->TIM1_COMP = Peta * 3/2 / hpetFemto;
 }
 
 void
@@ -237,9 +290,17 @@ hpet_handle_interrupts_tim1(void) {
 uint64_t
 hpet_cpu_frequency(void) {
     static uint64_t cpu_freq;
-
     // LAB 5: Your code here
+    uint64_t time_res = 100, target = hpetFreq / time_res, delta;
 
+    uint64_t hpet_start = hpet_get_main_cnt();
+    uint64_t tsc_start = read_tsc();
+    do {
+        asm("pause");
+        delta = hpet_get_main_cnt() - hpet_start;
+    } while (delta < target);
+
+    cpu_freq = (read_tsc() - tsc_start) * time_res;
     return cpu_freq;
 }
 
@@ -251,12 +312,24 @@ pmtimer_get_timeval(void) {
 
 /* Calculate CPU frequency in Hz with the help with ACPI PowerManagement timer.
  * HINT Use pmtimer_get_timeval function and do not forget that ACPI PM timer
- *      can be 24-bit or 32-bit. */
+ * can be 24-bit or 32-bit. */
 uint64_t
 pmtimer_cpu_frequency(void) {
     static uint64_t cpu_freq;
-
     // LAB 5: Your code here
+    uint32_t time_res = 100, target = PM_FREQ / time_res, delta;
 
+    uint32_t pm_start = pmtimer_get_timeval();
+    uint64_t tsc_start = read_tsc();
+
+    do {
+        asm("pause");
+        uint32_t pm_curr = pmtimer_get_timeval()
+        delta = pmtimer_get_timeval() - pm_start;
+        if (-delta <= 0xFFFFFF) { delta += 0xFFFFFF; } 
+        else if (pm_start > pm_curr) { delta += 0xFFFFFFFF; }
+    } while (delta < target);
+
+    cpu_freq = (read_tsc() - tsc_start) * PM_FREQ / delta;
     return cpu_freq;
 }

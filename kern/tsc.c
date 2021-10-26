@@ -193,7 +193,7 @@ print_timer_error(void) {
 
 // LAB 5: Your code here:
 
-static bool timer_started = 0;
+static bool timer_started = false;
 static int timer_id = -1;
 static uint64_t timer = 0;
 static uint64_t freq = 0;
@@ -204,12 +204,38 @@ timer_start(const char *name) {
     (void)timer_id;
     (void)timer;
     (void)freq;
+    for (int i = 0; i < MAX_TIMERS; i++) {
+        //timertab - struct filled in init.c
+        if ( !strcmp(timertab[i].timer_name, name) ) {
+            timer_started = true;
+            timer_id = i;
+            timer = read_tsc();
+            freq = timertab[timer_id].get_cpu_freq();
+            return;
+        }
+    }
+    cprintf("tsc.c/timer_start error\n");
 }
 
 void
 timer_stop(void) {
+    if ( !timer_started ) {
+        print_timer_error();
+        return;
+    }
+    print_time((read_tsc() - timer) / freq);
+
+    timer_started = false;
+    timer_id = -1;
 }
 
 void
 timer_cpu_frequency(const char *name) {
+    for (int i = 0; i < MAX_TIMERS; i++) {
+        if ( !strcmp(timertab[i].timer_name, name) ) {
+            cprintf("%lu\n", timertab[i].get_cpu_freq());
+            return;
+        }
+   }
+   cprintf("tsc.c/timer_cpu_frequency error\n");
 }

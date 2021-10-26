@@ -43,9 +43,9 @@ typedef struct {
 } RSDP;
 
 typedef struct {
-    char Signature[4];
+    char Signature[4]; //lab 5 need. name of table
     uint32_t Length;
-    uint8_t Revision;
+    uint8_t Revision; //lab 5
     uint8_t Checksum;
     char OEMID[6];
     char OEMTableID[8];

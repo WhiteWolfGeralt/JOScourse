@@ -141,15 +141,11 @@ i386_init(void) {
     }
 
     pic_init();
-<<<<<<< HEAD
     rtc_timer_init();
-    rtc_timer_pic_interrupt();
+    //rtc_timer_pic_interrupt();
     pic_irq_unmask(IRQ_CLOCK);
     //assert(false);
-=======
     timers_init();
-
->>>>>>> lab5
     /* Framebuffer init should be done after memory init */
     fb_init();
     if (trace_init) cprintf("Framebuffer initialised\n");
