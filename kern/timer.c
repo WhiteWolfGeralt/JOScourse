@@ -324,7 +324,7 @@ pmtimer_cpu_frequency(void) {
 
     do {
         asm("pause");
-        uint32_t pm_curr = pmtimer_get_timeval()
+        uint32_t pm_curr = pmtimer_get_timeval();
         delta = pmtimer_get_timeval() - pm_start;
         if (-delta <= 0xFFFFFF) { delta += 0xFFFFFF; } 
         else if (pm_start > pm_curr) { delta += 0xFFFFFFFF; }
