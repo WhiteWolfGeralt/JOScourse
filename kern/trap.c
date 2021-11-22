@@ -25,6 +25,7 @@ static struct Trapframe *last_tf;
 struct Gatedesc idt[256] = {{0}};
 struct Pseudodesc idt_pd = {sizeof(idt) - 1, (uint64_t)idt};
 
+
 /* Global descriptor table.
  *
  * Set up global descriptor table (GDT) with separate segments for
@@ -97,9 +98,11 @@ void
 trap_init(void) {
     // LAB 4: Your code here
     extern void (*clock_thdlr)(void);
+    extern void (*timer_thdlr)(void);
     
     // init idt structure
     idt[IRQ_OFFSET + IRQ_CLOCK] = GATE(0, GD_KT, (uintptr_t)(&clock_thdlr), 0);
+    idt[IRQ_OFFSET + IRQ_TIMER] = GATE(0, GD_KT, (uintptr_t)(&timer_thdlr), 0);
     lidt(&idt_pd);
 
     // LAB 5: Your code here

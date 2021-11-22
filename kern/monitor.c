@@ -41,6 +41,11 @@ static struct Command commands[] = {
         {"kerninfo", "Display information about the kernel", mon_kerninfo},
         {"backtrace", "Print stack backtrace", mon_backtrace},
         {"dumpcmos", "Print CMOS contents", mon_dumpcmos},
+
+        {"timer_start", "Start timer", mon_start},
+        {"timer_stop", "Stop timer", mon_stop},
+        {"timer_frequency", "Freq", mon_frequency}
+
 };
 #define NCOMMANDS (sizeof(commands) / sizeof(commands[0]))
 
@@ -113,6 +118,23 @@ mon_dumpcmos(int argc, char **argv, struct Trapframe *tf) {
 
 /* Implement timer_start (mon_start), timer_stop (mon_stop), timer_freq (mon_frequency) commands. */
 // LAB 5: Your code here:
+int 
+mon_start(int argc, char **argv, struct Trapframe *tf) {
+    timer_start(argv[1]);
+    return 0;
+}
+
+int 
+mon_stop(int argc, char **argv, struct Trapframe *tf) {
+    timer_stop();
+    return 0;
+}
+
+int
+mon_frequency(int argc, char **argv, struct Trapframe *tf) {
+    timer_cpu_frequency(argv[1]);
+    return 0;
+}
 
 /* Kernel monitor command interpreter */
 
