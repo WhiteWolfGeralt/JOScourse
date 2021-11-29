@@ -353,28 +353,7 @@ alloc_virtual_child(struct Page *parent, struct Page **dst) {
     }
 }
 
-/*
- * This function attaches a new memory region
- * to the physical memory tree during the
- * initiallization of the memory manager.
- *
- * HINT: Use page_lookup() with alloc == 1 for
- * each page of this memory region. Try
- * using as huge memory pages as possible.
- *
- * Roughly speaking, this this function
- * should first iterate from smallest
- * page size class (0) to MAX_CLASS trying to get
- * aligned address. And then iterate from maximal
- * used class to minimal, allocating page of that
- * class it it does not extend beyond given region
- *
- * HINT: CLASS_MASK() and CLASS_SIZE() macros might be
- * useful here
- */
 static void
-attach_region(uintptr_t start, uintptr_t end_local, enum PageState type) {
-    if (trace_memory_more) cprintf("Attaching memory region [%08lX, %08lX] with type %d\n", start, end_local - 1, type);
 check_virtual_class(struct Page *node, int class) {
     while (node->parent) class ++, node = node->parent;
     assert(class == MAX_CLASS);
@@ -438,8 +417,8 @@ page_lookup_virtual(struct Page *node, uintptr_t addr, int class, int alloc) {
 }
 
 static void
-attach_region(uintptr_t start, uintptr_t end, enum PageState type) {
-    if (trace_memory_more) cprintf("Attaching memory region [%08lX, %08lX] with type %d\n", start, end - 1, type);
+attach_region(uintptr_t start, uintptr_t end_local, enum PageState type) {
+    if (trace_memory_more) cprintf("Attaching memory region [%08lX, %08lX] with type %d\n", start, end_local - 1, type);
     int class = 0, res = 0;
 
     (void)class; (void)res;
@@ -633,7 +612,14 @@ check_virtual_tree(struct Page *page, int class) {
 void
 dump_virtual_tree(struct Page *node, int class) {
     // LAB 7: Your code here
-    
+    if (node->left) {
+        dump_virtual_tree(node->left, 0);
+    }
+    cprintf(" (%x, %x, %lx) \n", node->refc, node->class, (unsigned long) node->addr << CLASS_BASE);
+    if (node->right) {
+        dump_virtual_tree(node->right, 0);
+    }
+    // Your code end
 }
 
 void
@@ -676,6 +662,28 @@ dump_page_table(pte_t *pml4) {
     cprintf("Page table:\n");
     (void)addr;
     // LAB 7: Your code here
+    for (uint32_t i = 0; i < PML4_ENTRY_COUNT; i++) {
+        if (!pml4[i]) {
+            continue;
+        }
+        pdpe_t *pdp = (pdpe_t *)(pml4[i] << PML4_ENTRY_SHIFT);
+        for (uint32_t j = 0; j < PDP_ENTRY_COUNT; j++) {
+            if (!pdp[j]) {
+                continue;
+            }
+            pde_t *pd = (pde_t *)(pdp[j] << PDP_ENTRY_SHIFT);
+            for (uint32_t k = 0; k < PD_ENTRY_COUNT; k++) {
+                if (!pd[k]) {
+                    continue;
+                }
+                pte_t *pt = (pte_t *)(pd[k] << PD_ENTRY_SHIFT);
+                for (uint32_t m = 0; m < PT_ENTRY_COUNT; m++) {
+                    dump_entry(pt[m], pt[m] & PTE_PS, true);
+                }
+            }
+        }
+    }
+    // Your code end
 }
 
 inline static int
@@ -778,6 +786,7 @@ memcpy_page(struct AddressSpace *dst, uintptr_t va, struct Page *page) {
     nosan_memcpy((void *) va, (void *) KADDR((physaddr_t) page), CLASS_SIZE(page->class));
     set_wp(true);
     switch_address_space(prev);
+    // Your code end
 }
 
 static void
@@ -860,7 +869,6 @@ unmap_page(struct AddressSpace *spc, uintptr_t addr, int class) {
      * TIP: this resembles closely unmapping code */
 
     // LAB 7: Your code here
-
     size_t pdi0 = 0, pdi1 = 0;
     if (pdi0 > pdi1) pdi1 = PD_ENTRY_COUNT;
     if (class >= 9) {
@@ -892,7 +900,7 @@ unmap_page(struct AddressSpace *spc, uintptr_t addr, int class) {
     }
 
     (void)pdi1, (void)pdi0;
-    pte_t *pt = NULL;
+    pte_t *pt = KADDR(PTE_ADDR(pd[pdi0]));
 
     /* Unmap 4KB hw pages */
     size_t pti0 = PT_INDEX(addr), pti1 = PT_INDEX(end);
@@ -1728,7 +1736,7 @@ init_memory(void) {
     if (trace_init) cprintf("Physical memory tree is correct\n");
 
     init_kspace();
-
+    //cprintf("ABOBA1\n");
     /* First, only map kernel itself, kernel stacks, UEFI memory
      * and KASAN shadow memory regions to new kernel address space.
      * Allocated memory should not be touches until address space switch */
@@ -1739,24 +1747,40 @@ init_memory(void) {
     // LAB 7: Your code here
     // NOTE: You need to check if map_physical_region returned 0 everywhere! (and panic otherwise)
     // Map [0, max_memory_map_addr] to [KERN_BASE_ADDR, KERN_BASE_ADDR + max_memory_map_addr] as RW- + ALLOC_WEAK
-
+    if (map_physical_region(&kspace, KERN_BASE_ADDR, 0, max_memory_map_addr,
+                            PROT_R | PROT_W | ALLOC_WEAK)) {
+        panic("Can't map to KERN_BASE_ADDR.");
+    }
 
     extern char __text_end[], __text_start[];
     assert(!((uintptr_t)__text_start & CLASS_MASK(0)));
     assert(__text_end - __text_start < MAX_LOW_ADDR_KERN_SIZE);
     assert((uintptr_t)(end - KERN_BASE_ADDR) < MIN(BOOT_MEM_SIZE, max_memory_map_addr));
-
+    //cprintf("ABOBA2\n");
     /* ...and make kernel .text section executable: */
 
     // LAB 7: Your code here
     // Map [PADDR(__text_start);PADDR(__text_end)] to [__text_start, __text_end] as RW-
-
+    if (map_physical_region(&kspace, (uintptr_t) __text_start, PADDR(__text_start),
+                            __text_end - __text_start, PROT_RWX)) {
+        panic("Can't map to __text_start.");
+    }
 
     /* Allocate kernel stacks */
 
     // LAB 7: Your code here
     // Map [PADDR(bootstack), PADDR(bootstack) + KERN_STACK_SIZE] to [KERN_STACK_TOP - KERN_STACK_SIZE, KERN_STACK_TOP] as RW-
     // Map [PADDR(pfstack), PADDR(pfstack) + KERN_PF_STACK_SIZE] to [KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE, KERN_PF_STACK_TOP] as RW-
+    if (map_physical_region(&kspace, KERN_STACK_TOP - KERN_STACK_SIZE, PADDR(bootstack),
+                            KERN_STACK_SIZE, PROT_R | PROT_W)) {
+        panic("Can't map to KERN_STACK_TOP - KERN_STACK_SIZE.");
+    }
+
+    // Map [PADDR(pfstack), PADDR(pfstack) + KERN_PF_STACK_SIZE] to [KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE, KERN_PF_STACK_TOP] as RW-
+    if (map_physical_region(&kspace, KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE, PADDR(pfstack),
+                            KERN_PF_STACK_SIZE, PROT_R | PROT_W)) {
+        panic("Can't map to KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE.");
+    }
 
 #ifdef SANITIZE_SHADOW_BASE
     init_shadow_pre();
@@ -1769,9 +1793,13 @@ init_memory(void) {
             // LAB 7: Your code here
             // Map [mstart->PhysicalStart, mstart->PhysicalStart+mstart->NumberOfPages*PAGE_SIZE] to
             //     [mstart->VirtualStart, mstart->VirtualStart+mstart->NumberOfPages*PAGE_SIZE] as RW-
+            if (map_physical_region(&kspace, mstart->VirtualStart, mstart->PhysicalStart,
+                                    mstart->NumberOfPages*PAGE_SIZE, PROT_R | PROT_W)) {
+                panic("Can't map to mstart->VirtualStart.");
+            }
         }
     }
-
+    //cprintf("ABOBA3\n");
     if (trace_memory_more) {
         cprintf("uefi_lp= %p %p\n", (void *)uefi_lp, (void *)uefi_lp->SelfVirtual);
     }
@@ -1820,22 +1848,45 @@ init_memory(void) {
             assert(*(volatile int *)mstart->VirtualStart == expected);
         }
     }
+    //cprintf("ABOBA_OUT\n");
     /* Map the rest of memory regions after initiallizing shadow memory */
 
     // LAB 7: Your code here
     // Map [FRAMEBUFFER, FRAMEBUFFER + uefi_lp->FrameBufferSize] to
     //     [uefi_lp->FrameBufferBase, uefi_lp->FrameBufferBase + uefi_lp->FrameBufferSize] RW- + PROT_WC
+    if (map_physical_region(&kspace, uefi_lp->FrameBufferBase, FRAMEBUFFER,
+                            uefi_lp->FrameBufferSize, PROT_R | PROT_W | PROT_WC)) {
+        panic("Can't map to uefi_lp->FrameBufferBase.");
+    }
     // Map [X86ADDR(KERN_BASE_ADDR),MIN(MAX_LOW_ADDR_KERN_SIZE, max_memory_map_addr)] to
     //     [0, MIN(MAX_LOW_ADDR_KERN_SIZE, max_memory_map_addr)] as RW + ALLOC_WEAK
+    if (map_physical_region(&kspace, 0, X86ADDR(KERN_BASE_ADDR),
+                            MIN(MAX_LOW_ADDR_KERN_SIZE, max_memory_map_addr), PROT_R | PROT_W | ALLOC_WEAK)) {
+        panic("Can't map to 0.");
+    }
     // Map [X86ADDR((uintptr_t)__text_start),ROUNDUP(X86ADDR((uintptr_t)__text_end), CLASS_SIZE(0))] to
     //     [PADDR(__text_start), ROUNDUP(__text_end, CLASS_SIZE(0))] as R-X
+    if (map_physical_region(&kspace, PADDR(__text_start), X86ADDR((uintptr_t)__text_start),
+                            ROUNDUP(X86ADDR((uintptr_t)__text_end), CLASS_SIZE(0)) - X86ADDR((uintptr_t)__text_start),
+                            PROT_R | PROT_X)) {
+        panic("Can't map to PADDR(__text_start).");
+    }
     // Map [X86ADDR(KERN_STACK_TOP - KERN_STACK_SIZE), KERN_STACK_TOP] to
     //     [PADDR(bootstack), PADDR(boottop)] as RW-
+    if (map_physical_region(&kspace, PADDR(bootstack), X86ADDR(KERN_STACK_TOP - KERN_STACK_SIZE),
+                            PADDR(bootstacktop) - PADDR(bootstack), PROT_R | PROT_W)) {
+        panic("Can't map to PADDR(bootstack).");
+    }
     // Map [X86ADDR(KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE), KERN_PF_STACK_TOP] to
     //     [PADDR(pfstack), PADDR(pfstacktop)] as RW-
+    if (map_physical_region(&kspace, PADDR(pfstack), X86ADDR(KERN_PF_STACK_TOP - KERN_PF_STACK_SIZE),
+                            PADDR(pfstacktop) - PADDR(pfstack), PROT_R | PROT_W)) {
+        panic("Can't map to PADDR(pfstack).");
+    }
 
     if (trace_memory_more) dump_page_table(kspace.pml4);
 
+    //cprintf("ABOBA\n");
     check_physical_tree(&root);
     if (trace_init) cprintf("Physical memory tree is stil correct\n");
 
