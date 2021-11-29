@@ -1845,6 +1845,7 @@ init_memory(void) {
         if (mstart->Attribute & EFI_MEMORY_RUNTIME) {
             int expected;
             nosan_memcpy(&expected, KADDR(mstart->PhysicalStart), sizeof(int));
+            cprintf("\n\n\n%d == %d\n\n\n", *(volatile int *)mstart->VirtualStart, expected);
             assert(*(volatile int *)mstart->VirtualStart == expected);
         }
     }
@@ -1888,8 +1889,8 @@ init_memory(void) {
 
     //cprintf("ABOBA\n");
     check_physical_tree(&root);
-    if (trace_init) cprintf("Physical memory tree is stil correct\n");
+    if (trace_init) cprintf("Physical memory tree is still correct\n");
 
     check_virtual_tree(kspace.root, MAX_CLASS);
-    if (trace_init) cprintf("Kernel virutal memory tree is correct\n");
+    if (trace_init) cprintf("Kernel virtual memory tree is correct\n");
 }
