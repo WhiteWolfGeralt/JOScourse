@@ -1917,8 +1917,8 @@ init_memory(void) {
     if (trace_memory_more) dump_page_table(kspace.pml4);
 
     check_physical_tree(&root);
-    if (trace_init) cprintf("Physical memory tree is still correct\n");
+    if (trace_init) cprintf("Physical memory tree is stil correct\n");
 
     check_virtual_tree(kspace.root, MAX_CLASS);
-    if (trace_init) cprintf("Kernel virtual memory tree is correct\n");
+    if (trace_init) cprintf("Kernel virutal memory tree is correct\n");
 }
