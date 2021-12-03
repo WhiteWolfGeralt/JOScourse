@@ -138,19 +138,6 @@ find_function(const char *const fname) {
      * in assembly. */
 
     // LAB 3: Your code here:
-    struct {
-        const char *name;
-        uintptr_t addr;
-    } sys_find[] = {
-        //{ "sys_yield", (uintptr_t)sys_yield },
-        //{ "sys_exit", (uintptr_t)sys_exit },
-    };
-
-    for (size_t i = 0; i < sizeof(sys_find) / sizeof(*sys_find); i++) {
-        if ( !strcmp(sys_find[i].name, fname) ) {
-            return sys_find[i].addr;
-        }
-    }
 
     struct Dwarf_Addrs addrs;
     load_kernel_dwarf_info(&addrs);
