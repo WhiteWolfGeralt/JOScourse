@@ -93,11 +93,12 @@ env_init(void) {
     /* Allocate envs array with kzalloc_region
      * (don't forget about rounding) */
     // LAB 8: Your code here
-
+    envs = (struct Env *)kzalloc_region(sizeof(*envs) * NENV);
+    memset(envs, 0, sizeof(*envs) * NENV);
     /* Map envs to UENVS read-only,
      * but user-accessible (with PROT_USER_ set) */
     // LAB 8: Your code here
-
+    map_region(current_space, UENVS, &kspace, (uintptr_t)envs, UENVS_SIZE, PROT_R | PROT_USER_);
     /* Set up envs array */
     // LAB 3: Your code here
     env_free_list = NULL;
@@ -311,11 +312,14 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
 		    image_end = image_end > (proghdr[i].p_va+proghdr[i].p_memsz) ? image_end : proghdr[i].p_va + proghdr[i].p_memsz;
         }
     }
-    env->env_tf.tf_rip = elf->e_entry;
+    // LAB 8: Your code here
+    map_region(&env->address_space, USER_STACK_TOP - USER_STACK_SIZE, NULL, 0, USER_STACK_SIZE, PROT_R | PROT_W | PROT_USER_ | ALLOC_ZERO);
+    switch_address_space(&kspace);
+    // LAB 8: Your code here end
 
+    env->env_tf.tf_rip = elf->e_entry;
     bind_functions(env, binary, size, image_start, image_end);
 
-    // LAB 8: Your code here
 
     return 0;
 }
@@ -334,7 +338,7 @@ env_create(uint8_t *binary, size_t size, enum EnvType type) {
     if (env_alloc(&env, 0, type) < 0) {
         panic("It's impossible to allocate an env.\n");
     }
-
+    env->binary = binary;
     load_icode(env, binary, size); 
 }
 
@@ -479,9 +483,10 @@ env_run(struct Env *env) {
 	}		
     curenv = env; 
     curenv->env_status = ENV_RUNNING;
-    curenv->env_runs++; 
-    env_pop_tf(&(curenv->env_tf)); 
+    curenv->env_runs++;
     // LAB 8: Your code here
-
+    switch_address_space(&curenv->address_space);
+    // LAB 8: Your code here end
+    env_pop_tf(&(curenv->env_tf));
     while(1) {}
 }

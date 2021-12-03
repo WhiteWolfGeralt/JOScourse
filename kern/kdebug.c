@@ -142,8 +142,8 @@ find_function(const char *const fname) {
         const char *name;
         uintptr_t addr;
     } sys_find[] = {
-        { "sys_yield", (uintptr_t)sys_yield },
-        { "sys_exit", (uintptr_t)sys_exit },
+        //{ "sys_yield", (uintptr_t)sys_yield },
+        //{ "sys_exit", (uintptr_t)sys_exit },
     };
 
     for (size_t i = 0; i < sizeof(sys_find) / sizeof(*sys_find); i++) {
