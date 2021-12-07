@@ -26,22 +26,27 @@ sched_yield(void) {
 
     // LAB 3: Your code here:
     //env_run(&envs[0]);
-    int id, tmp;
-    if (curenv == NULL) { id = -1; }
-    else { id = ENVX(curenv->env_id); }
-    tmp = id;
-
-    do {
-        id = (id + 1) % NENV;
-        if (envs[id].env_status == ENV_RUNNABLE || (id == tmp && envs[id].env_status == ENV_RUNNING)) {
-            env_run(envs + id);
+    int begin = curenv ? ENVX(curenv->env_id) + 1 : 0;
+    int index = begin;
+    bool found = false;
+    for (int i = 0; i < NENV; i++) {
+        index = (begin + i) % NENV;
+        if (envs[index].env_status == ENV_RUNNABLE) {
+            found = true;
+            break;
         }
-    } while (id != tmp);
-    cprintf("Halt\n");
+    }
+    if (found) {
+        env_run(&envs[index]);
+    } else if (curenv && curenv->env_status == ENV_RUNNING) {
+        env_run(curenv);
+    } else {
+        sched_halt();
+    }
 
     /* No runnable environments,
      * so just halt the cpu */
-    sched_halt();
+    //sched_halt();
 }
 
 /* Halt this CPU when there is nothing to do. Wait until the
