@@ -28,13 +28,13 @@ sched_yield(void) {
     //env_run(&envs[0]);
     int id, tmp;
     if (curenv == NULL) { id = -1; }
-    else { id = ENVX(curenv->env_id); } 
+    else { id = ENVX(curenv->env_id); }
     tmp = id;
 
     do {
-        id = (id + 1) % NENV; 
+        id = (id + 1) % NENV;
         if (envs[id].env_status == ENV_RUNNABLE || (id == tmp && envs[id].env_status == ENV_RUNNING)) {
-            env_run(envs + id);  
+            env_run(envs + id);
         }
     } while (id != tmp);
     cprintf("Halt\n");

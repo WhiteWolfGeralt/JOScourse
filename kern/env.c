@@ -92,23 +92,27 @@ env_init(void) {
 
     /* Allocate envs array with kzalloc_region
      * (don't forget about rounding) */
+
     // LAB 8: Your code here
     envs = (struct Env *)kzalloc_region(sizeof(*envs) * NENV);
     memset(envs, 0, sizeof(*envs) * NENV);
+
     /* Map envs to UENVS read-only,
      * but user-accessible (with PROT_USER_ set) */
+
     // LAB 8: Your code here
     map_region(current_space, UENVS, &kspace, (uintptr_t)envs, UENVS_SIZE, PROT_R | PROT_USER_);
+
     /* Set up envs array */
     // LAB 3: Your code here
     env_free_list = NULL;
 
-    for (int count = NENV - 1; count >= 0; count--) { 
-        envs[count].env_link = env_free_list;
-        envs[count].env_id = 0;
-        envs[count].env_status = ENV_FREE;
-        env_free_list = &(envs[count]);
-  }
+    for (int i = 0; i < NENV; i++) {
+        envs[NENV - i - 1].env_status = ENV_FREE;
+        envs[NENV - i - 1].env_id = 0;
+        envs[NENV - i - 1].env_link = env_free_list;
+        env_free_list = &envs[NENV - i - 1];
+    }
 }
 
 /* Allocates and initializes a new environment.
@@ -187,7 +191,7 @@ env_alloc(struct Env **newenv_store, envid_t parent_id, enum EnvType type) {
     env_free_list = env->env_link;
     *newenv_store = env;
 
-    if (trace_envs) 
+    if (trace_envs)
         cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, env->env_id);
     return 0;
 }
@@ -221,15 +225,15 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
             size_t nsyms = secthdr[i].sh_size / sizeof(*syms);
 
             for (size_t j = 0; j < nsyms; j++) {
-                if (ELF64_ST_BIND(syms[j].st_info) == STB_GLOBAL 
-                    && ELF64_ST_TYPE(syms[j].st_info) == STT_OBJECT 
-                    && syms[j].st_size == sizeof(void *)) 
+                if (ELF64_ST_BIND(syms[j].st_info) == STB_GLOBAL
+                    && ELF64_ST_TYPE(syms[j].st_info) == STT_OBJECT
+                    && syms[j].st_size == sizeof(void *))
                 {
                     const char *name = strings + syms[j].st_name;
                     uintptr_t addr = find_function(name);
 
-                    if (addr != 0) { 
-                        memcpy((void *)syms[j].st_value, &addr, sizeof(void *)); 
+                    if (addr != 0) {
+                        memcpy((void *)syms[j].st_value, &addr, sizeof(void *));
                     }
                 }
             }
@@ -289,7 +293,7 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
 static int
 load_icode(struct Env *env, uint8_t *binary, size_t size) {
     // LAB 3: Your code here
-    struct Elf *elf = (struct Elf *)binary; 
+    struct Elf *elf = (struct Elf *)binary;
     if (elf->e_magic != ELF_MAGIC) {
         return -E_INVALID_EXE;
     }
@@ -298,7 +302,7 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
     }
     uintptr_t image_start = -1;
   	uintptr_t image_end = 0;
-    struct Proghdr *proghdr = (struct Proghdr *)(binary + elf->e_phoff); 
+    struct Proghdr *proghdr = (struct Proghdr *)(binary + elf->e_phoff);
 
     for (size_t i = 0; i < elf->e_phnum; i++) { // elf->e_phnum - Число заголовков программы. Если у файла нет таблицы заголовков программы, это поле содержит 0.
         if (proghdr[i].p_type == ELF_PROG_LOAD) {
@@ -306,7 +310,7 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
 		    void *dst = (void *)proghdr[i].p_va;
 		    size_t memsz  = proghdr[i].p_memsz;
 		    size_t filesz = MIN(proghdr[i].p_filesz, memsz);
-		    memcpy(dst, src, filesz);               
+		    memcpy(dst, src, filesz);
 		    memset(dst + filesz, 0, memsz - filesz);
 		    image_start = image_start < proghdr[i].p_va && image_start !=- 1 ? image_start : proghdr[i].p_va;
 		    image_end = image_end > (proghdr[i].p_va+proghdr[i].p_memsz) ? image_end : proghdr[i].p_va + proghdr[i].p_memsz;
@@ -315,12 +319,10 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
     // LAB 8: Your code here
     map_region(&env->address_space, USER_STACK_TOP - USER_STACK_SIZE, NULL, 0, USER_STACK_SIZE, PROT_R | PROT_W | PROT_USER_ | ALLOC_ZERO);
     switch_address_space(&kspace);
-    // LAB 8: Your code here end
+    // Your code here
 
     env->env_tf.tf_rip = elf->e_entry;
     bind_functions(env, binary, size, image_start, image_end);
-
-
     return 0;
 }
 
@@ -339,7 +341,7 @@ env_create(uint8_t *binary, size_t size, enum EnvType type) {
         panic("It's impossible to allocate an env.\n");
     }
     env->binary = binary;
-    load_icode(env, binary, size); 
+    load_icode(env, binary, size);
 }
 
 /* Frees env and all memory it uses */
@@ -347,7 +349,7 @@ void
 env_free(struct Env *env) {
 
     /* Note the environment's demise. */
-    if (trace_envs) 
+    if (trace_envs)
         cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, env->env_id);
 
 #ifndef CONFIG_KSPACE
@@ -381,12 +383,12 @@ env_destroy(struct Env *env) {
     // LAB 3: Your code here
     env->env_status = ENV_DYING;
     if (env == curenv) {
-        env_free(env); 
-        sched_yield(); 
+        env_free(env);
+        sched_yield();
     }
 
     // LAB 8: Your code here (set in_page_fault = 0)
-
+    in_page_fault = 0;
 }
 
 #ifdef CONFIG_KSPACE
@@ -436,7 +438,7 @@ env_pop_tf(struct Trapframe *tf) {
 
     /* Mostly to placate the compiler */
     panic("Reached unrecheble\n");
-} 
+}
 
 /* Context switch from curenv to env.
  * This function does not return.
@@ -466,27 +468,22 @@ env_run(struct Env *env) {
     assert(env);
     if (trace_envs_more) {
         const char *state[] = {"FREE", "DYING", "RUNNABLE", "RUNNING", "NOT_RUNNABLE"};
-        if (curenv) 
+        if (curenv)
             cprintf("[%08X] env stopped: %s\n", curenv->env_id, state[curenv->env_status]);
         cprintf("[%08X] env started: %s\n", env->env_id, state[env->env_status]);
     }
     // LAB 3: Your code here
-    if (curenv) { 
-        if (curenv->env_status == ENV_DYING) {
-            struct Env *old = curenv;
-            env_free(curenv);  
-            if (old == env) {
-                sched_yield();
-            }  
-        } 
-        else if (curenv->env_status == ENV_RUNNING) curenv->env_status = ENV_RUNNABLE;
-	}		
-    curenv = env; 
+    if (curenv) {
+        if (curenv->env_status == ENV_RUNNING) {
+            curenv->env_status = ENV_RUNNABLE;
+        }
+    }
+    curenv = env;
     curenv->env_status = ENV_RUNNING;
     curenv->env_runs++;
     // LAB 8: Your code here
     switch_address_space(&curenv->address_space);
-    // LAB 8: Your code here end
+    // Your code here end
     env_pop_tf(&(curenv->env_tf));
     while(1) {}
 }
