@@ -27,7 +27,6 @@ static struct Trapframe *last_tf;
 struct Gatedesc idt[256] = {{0}};
 struct Pseudodesc idt_pd = {sizeof(idt) - 1, (uint64_t)idt};
 
-
 /* Global descriptor table.
  *
  * Set up global descriptor table (GDT) with separate segments for
@@ -99,14 +98,18 @@ trapname(int trapno) {
 void
 trap_init(void) {
     // LAB 4: Your code here
+
     extern void (*clock_thdlr)(void);
+
     idt[IRQ_CLOCK + IRQ_OFFSET] = GATE(0, GD_KT, (uintptr_t)(&clock_thdlr), 0);
 
     // LAB 5: Your code here
+
     idt[IRQ_OFFSET + IRQ_TIMER] = GATE(0, GD_KT, (uintptr_t)(&clock_thdlr), 0);
 
     /* Insert trap handlers into IDT */
     // LAB 8: Your code here
+
     extern void (*thdlr0)(void);
     idt[T_DIVIDE] = GATE(0, GD_KT, (uint64_t)&thdlr0, 0);
     extern void (*thdlr1)(void);
@@ -145,7 +148,6 @@ trap_init(void) {
     idt[T_SIMDERR] = GATE(0, GD_KT, (uint64_t)&thdlr19, 0);
     extern void (*thdlr48)(void);
     idt[T_SYSCALL] = GATE(0, GD_KT, (uint64_t)&thdlr48, 3);
-    //Your code here end
 
     /* Setup #PF handler dedicated stack
      * It should be switched on #PF because
@@ -272,7 +274,7 @@ trap_dispatch(struct Trapframe *tf) {
     case T_BRKPT:
         // LAB 8: Your code here
         monitor(tf);
-        //Your code here end
+
         return;
     case IRQ_OFFSET + IRQ_SPURIOUS:
         /* Handle spurious interrupts
@@ -285,11 +287,10 @@ trap_dispatch(struct Trapframe *tf) {
         return;
     case IRQ_OFFSET + IRQ_TIMER:
     case IRQ_OFFSET + IRQ_CLOCK:
-        // LAB 5: Your code here
-        timer_for_schedule->handle_interrupts();
-
         // LAB 4: Your code here
         //rtc_timer_pic_handle();
+        // LAB 5: Your code here
+        timer_for_schedule->handle_interrupts();
         sched_yield();
         return;
     default:
