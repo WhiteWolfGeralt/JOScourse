@@ -18,11 +18,12 @@
 envid_t
 fork(void) {
     // LAB 9: Your code here
+    envid_t envid;
     int res = 0;
-    envid_t envid = sys_exofork();
+    envid = sys_exofork();
     if (envid < 0) { panic("exofork failed\n"); }
 
-    if (envid == 0) { // if child
+    if (envid == 0) { //child
         thisenv = &envs[ENVX(sys_getenvid())];
         return 0;
     }
