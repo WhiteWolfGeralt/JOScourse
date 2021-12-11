@@ -344,7 +344,6 @@ env_create(uint8_t *binary, size_t size, enum EnvType type) {
 /* Frees env and all memory it uses */
 void
 env_free(struct Env *env) {
-
     /* Note the environment's demise. */
     if (trace_envs)
         cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, env->env_id);

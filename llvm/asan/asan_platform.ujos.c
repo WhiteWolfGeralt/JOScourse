@@ -65,7 +65,10 @@ platform_abort() {
 static bool
 asan_shadow_allocator(struct UTrapframe *utf) {
     // LAB 9: Your code here
-    return 0;
+    if (utf->utf_fault_va > asan_internal_shadow_start && utf->utf_fault_va < asan_internal_shadow_end) {
+        sys_alloc_region(curenv->env_id, SHADOW_FOR_ADDRESS(utf->utf_fault_va), 1, ALLOC_ONE);
+    }
+    return 1;
 }
 #endif
 
