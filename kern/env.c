@@ -385,7 +385,11 @@ env_destroy(struct Env *env) {
     }
 
     // LAB 8: Your code here (set in_page_fault = 0)
-    in_page_fault = 0;
+    if (env->env_tf.tf_trapno == T_PGFLT) {
+        assert(current_space);
+        assert(!in_page_fault);
+        in_page_fault = 0;
+    }
 }
 
 #ifdef CONFIG_KSPACE

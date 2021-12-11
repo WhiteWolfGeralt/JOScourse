@@ -94,7 +94,15 @@ sys_exofork(void) {
      * will appear to return 0. */
 
     // LAB 9: Your code here
-    return 0;
+    struct Env* result = NULL;
+    int res = env_alloc(&result, curenv->env_id, ENV_TYPE_USER);
+    if (res < 0) { return res; }
+    result->env_status = ENV_NOT_RUNNABLE;
+    result->env_tf = curenv->env_tf;
+    result->env_pgfault_upcall = curenv->env_pgfault_upcall;
+    result->env_tf.tf_regs.reg_rax = 0;
+    return result->env_id;
+    // Your code here end
 }
 
 /* Set envid's env_status to status, which must be ENV_RUNNABLE
@@ -113,8 +121,13 @@ sys_env_set_status(envid_t envid, int status) {
      * envid's status. */
 
     // LAB 9: Your code here
-
+    struct Env* result = NULL;
+    int res = envid2env(envid, &result, true);
+    if (res < 0) { return res; }
+    if (status != ENV_NOT_RUNNABLE && status != ENV_RUNNABLE) { return -E_INVAL; }
+    result->env_status = status;
     return 0;
+    // Your code here end
 }
 
 /* Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -137,15 +150,15 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func) {
  * The page's contents are set to 0.
  * If a page is already mapped at 'va', that page is unmapped as a
  * side effect.
- * 
+ *
  * This call should work with or without ALLOC_ZERO/ALLOC_ONE flags
  * (set them if they are not already set)
- * 
+ *
  * It allocates memory lazily so you need to use map_region
  * with PROT_LAZY and ALLOC_ONE/ALLOC_ZERO set.
- * 
+ *
  * Don't forget to set PROT_USER_
- * 
+ *
  * PROT_ALL is useful for validation.
  *
  * Return 0 on success, < 0 on error.  Errors are:
@@ -155,17 +168,34 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func) {
  *  -E_INVAL if perm is inappropriate (see above).
  *  -E_NO_MEM if there's no memory to allocate the new page,
  *      or to allocate any necessary page tables. */
+
 static int
 sys_alloc_region(envid_t envid, uintptr_t addr, size_t size, int perm) {
     // LAB 9: Your code here:
+    struct Env* result = NULL;
+    int res = envid2env(envid, &result, true);
+    if (res < 0) { return res; }
+    if (addr >= MAX_USER_ADDRESS || PAGE_OFFSET(addr)) { return -E_INVAL; }
+    if (perm & ALLOC_ONE) {
+        perm &= ~ALLOC_ZERO;
+    } else {
+        perm |= ALLOC_ZERO;
+        perm &= ~ALLOC_ONE;
+    }
+    res = map_region(&result->address_space, addr, NULL, 0, size, perm | PROT_USER_ | PROT_LAZY );
+    if (res < 0) {
+        cprintf("map region: %i  addr: %ld size %ld\n", res, addr, size);
+        return -E_NO_MEM;
+    }
     return 0;
+    // Your code here end
 }
 
 /* Map the region of memory at 'srcva' in srcenvid's address space
  * at 'dstva' in dstenvid's address space with permission 'perm'.
  * Perm has the same restrictions as in sys_alloc_region, except
  * that it also does not supprt ALLOC_ONE/ALLOC_ONE flags.
- * 
+ *
  * You only need to check alignment of addresses, perm flags and
  * that addresses are a part of user space. Everything else is
  * already checked inside map_region().
@@ -185,8 +215,20 @@ static int
 sys_map_region(envid_t srcenvid, uintptr_t srcva,
                envid_t dstenvid, uintptr_t dstva, size_t size, int perm) {
     // LAB 9: Your code here
-
+    struct Env *src_env = NULL, *dst_env = NULL;
+    int res = envid2env(srcenvid, &src_env, true);
+    if (res < 0) { return res; }
+    res = envid2env(dstenvid, &dst_env, true);
+    if (res < 0) { return res; }
+    if (srcva >= MAX_USER_ADDRESS  || PAGE_OFFSET(srcva)) { return -E_INVAL; }
+    if (dstva >= MAX_USER_ADDRESS  || PAGE_OFFSET(dstva)) { return -E_INVAL; }
+    res = map_region(&dst_env->address_space, dstva, &src_env->address_space, srcva, size, perm | PROT_USER_);
+    if (res < 0) {
+        cprintf("sys_map_region -> map_regin failed: %i\n", res);
+        return -E_NO_MEM;
+    }
     return 0;
+    // Your code here end
 }
 
 /* Unmap the region of memory at 'va' in the address space of 'envid'.
@@ -201,8 +243,13 @@ sys_unmap_region(envid_t envid, uintptr_t va, size_t size) {
     /* Hint: This function is a wrapper around unmap_region(). */
 
     // LAB 9: Your code here
-
+    struct Env* result = NULL;
+    int res = envid2env(envid, &result, true);
+    if (res < 0) { return res; }
+    if (va >= MAX_USER_ADDRESS  || PAGE_OFFSET(va)) { return -E_INVAL; }
+    unmap_region(&result->address_space, va, size);
     return 0;
+    // Your code here end
 }
 
 /* Try to send 'value' to the target env 'envid'.
@@ -228,7 +275,7 @@ sys_unmap_region(envid_t envid, uintptr_t va, size_t size) {
  * If the sender wants to send a page but the receiver isn't asking for one,
  * then no page mapping is transferred, but no error occurs.
  * Send region size is the minimum of sized specified in sys_ipc_try_send() and sys_ipc_recv()
- * 
+ *
  * The ipc only happens when no errors occur.
  *
  * Returns 0 on success, < 0 on error.
@@ -277,7 +324,7 @@ sys_ipc_recv(uintptr_t dstva, uintptr_t maxsize) {
  * number of references of regions [addr, addr + size] and [addr2,addr2+size2]
  * if addr2 is less than MAX_USER_ADDRESS, or just
  * maximal number of references to [addr, addr + size]
- * 
+ *
  * Use region_maxref() here.
  */
 static int
@@ -295,15 +342,26 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
     // LAB 8: Your code here
     if (syscallno == SYS_cputs) {
         return sys_cputs((const char *)a1, (size_t)a2);
-    }
-    else if (syscallno == SYS_cgetc) {
+    } else if (syscallno == SYS_cgetc) {
         return sys_cgetc();
-    }
-    else if (syscallno == SYS_getenvid) {
+    } else if (syscallno == SYS_getenvid) {
         return sys_getenvid();
-    }
-    else if (syscallno == SYS_env_destroy) {
+    } else if (syscallno == SYS_env_destroy) {
         return sys_env_destroy((envid_t)a1);
+    } else if (syscallno == SYS_alloc_region) {
+        return sys_alloc_region((envid_t)a1, a2, (size_t)a3, (int)a4);
+    } else if (syscallno == SYS_map_region) {
+        return sys_map_region((envid_t) a1, a2,(envid_t)a3, a4, (size_t)a5, (int)a6);
+    } else if (syscallno == SYS_unmap_region) {
+        return sys_unmap_region((envid_t) a1, a2,(size_t)a3);
+    } else if (syscallno == SYS_region_refs) {
+        return sys_region_refs(a1, (size_t)a2, a3, a4);
+    } else if (syscallno == SYS_exofork) {
+        return sys_exofork();
+    } else if (syscallno == SYS_env_set_status) {
+        return sys_env_set_status((envid_t)a1, (int)a2);
+    } else if (syscallno == SYS_env_set_pgfault_upcall) {
+        return sys_env_set_pgfault_upcall((envid_t) a1, (void *)a2);
     }
     //Your code here end
     // LAB 9: Your code here
