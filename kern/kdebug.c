@@ -104,7 +104,6 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
      * depending on whether addr is pointing to userspace
      * or kernel space */
     // LAB 8: Your code here:
-
     struct Dwarf_Addrs addrs;
     if (addr < MAX_USER_READABLE) {
         load_user_dwarf_info(&addrs);
@@ -134,7 +133,6 @@ debuginfo_rip(uintptr_t addr, struct Ripdebuginfo *info) {
     * string returned by function_by_info will always be */
 
     // LAB 2: Your res here:
-
     addr -= 5;
     res = line_for_address(&addrs, addr, line_offset, &(info->rip_line));
     if (res < 0) goto error;
@@ -158,7 +156,6 @@ find_function(const char *const fname) {
      * in assembly. */
 
     // LAB 3: Your code here:
-
     struct Dwarf_Addrs addrs;
     load_kernel_dwarf_info(&addrs);
     uintptr_t offset = 0;

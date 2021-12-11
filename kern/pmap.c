@@ -1985,23 +1985,22 @@ static uintptr_t user_mem_check_addr;
 int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm) {
     // LAB 8: Your code here
-
-    const void *current = (void *)ROUNDDOWN(va, PAGE_SIZE);
     const void *end = va + len;
-    struct Page *user_root = env->address_space.root;
-    while (current < end) {
-        struct Page *page = page_lookup_virtual(user_root, (uintptr_t)current, 0, 0);
-        if (!page->phy || (page->state & PAGE_PROT(perm)) != PAGE_PROT(perm)) {
-            user_mem_check_addr = (uintptr_t)(MAX(va, current));
+    const void *va_b = va;
+    va = (void *)ROUNDDOWN(va, PAGE_SIZE);
+    struct Page *root = env->address_space.root;
+    while (va < end) {
+        struct Page *smallest_page = page_lookup_virtual(root, (uintptr_t)va, 0, 0);
+        if (!smallest_page->phy || (smallest_page->state & PAGE_PROT(perm)) != PAGE_PROT(perm)) {
+            user_mem_check_addr = (uintptr_t)MAX(va, va_b);
             return -E_FAULT;
         }
-        current += PAGE_SIZE;
+        va += PAGE_SIZE;
     }
     if ((uintptr_t)end > MAX_USER_READABLE) {
-        user_mem_check_addr = MAX(MAX_USER_READABLE, (uintptr_t)current);
+        user_mem_check_addr = MAX(MAX_USER_READABLE, (uintptr_t)va_b);
         return -E_FAULT;
     }
-
     return 0;
 }
 
