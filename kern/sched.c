@@ -26,7 +26,7 @@ sched_yield(void) {
 
     // LAB 3: Your code here:
     //env_run(&envs[0]);
-    int begin = curenv ? ENVX(curenv->env_id) + 1 : 0;
+    int begin = curenv ? ENVX(curenv->env_id) : 0;
     int index = begin;
     bool found = false;
     for (int i = 0; i < NENV; i++) {
