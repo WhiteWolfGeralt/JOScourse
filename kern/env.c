@@ -337,6 +337,9 @@ env_create(uint8_t *binary, size_t size, enum EnvType type) {
     if (env_alloc(&env, 0, type) < 0) {
         panic("It's impossible to allocate an env.\n");
     }
+    if (type == ENV_TYPE_FS) {
+        env->env_tf.tf_rflags |= FL_IOPL_3;
+    }
     env->binary = binary;
     load_icode(env, binary, size);
 }
