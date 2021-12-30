@@ -2,6 +2,7 @@
 #include <inc/x86.h>
 #include <inc/assert.h>
 #include <inc/string.h>
+#include <inc/vsyscall.h>
 
 #include <kern/pmap.h>
 #include <kern/trap.h>
@@ -13,6 +14,7 @@
 #include <kern/kclock.h>
 #include <kern/picirq.h>
 #include <kern/timer.h>
+#include <kern/vsyscall.h>
 #include <kern/traceopt.h>
 
 static struct Taskstate ts;
@@ -296,6 +298,11 @@ trap_dispatch(struct Trapframe *tf) {
         return;
     case IRQ_OFFSET + IRQ_TIMER:
     case IRQ_OFFSET + IRQ_CLOCK:
+<<<<<<< HEAD
+=======
+        // LAB 12: Your code here
+        // LAB 5: Your code here
+>>>>>>> lab12
         // LAB 4: Your code here
         //rtc_timer_pic_handle();
         // LAB 5: Your code here
