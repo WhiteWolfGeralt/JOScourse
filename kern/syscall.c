@@ -382,7 +382,7 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf) {
 static int
 sys_gettime(void) {
     // LAB 12: Your code here
-    return 0;
+    return gettime();
 }
 
 /*
@@ -409,9 +409,7 @@ uintptr_t
 syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t a4, uintptr_t a5, uintptr_t a6) {
     /* Call the function corresponding to the 'syscallno' parameter.
      * Return any appropriate return value. */
-
-<<<<<<< HEAD
-    // LAB 8 LAB 9 LAB 11: Your code here
+    // LAB 8 LAB 9 LAB 11 LAB 12: Your code here
     if (syscallno == SYS_cputs) {
         return sys_cputs((const char *)a1, (size_t)a2);
     } else if (syscallno == SYS_cgetc) {
@@ -432,6 +430,8 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
         return sys_exofork();
     } else if (syscallno == SYS_env_set_status) {
         return sys_env_set_status((envid_t)a1, (int)a2);
+    } else if (syscallno == SYS_env_set_trapframe) {
+        return sys_env_set_trapframe((envid_t)a1, (struct Trapframe *)a2);
     } else if (syscallno == SYS_env_set_pgfault_upcall) {
         return sys_env_set_pgfault_upcall((envid_t) a1, (void *)a2);
     } else if (syscallno == SYS_yield) {
@@ -441,16 +441,9 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
         return sys_ipc_try_send((envid_t)a1, (uint32_t)a2, a3,(size_t)a4,(int)a5);
     } else if (syscallno == SYS_ipc_recv) {
         return sys_ipc_recv(a1, a2);
-    } else if (syscallno == SYS_env_set_trapframe) {
-        return sys_env_set_trapframe((envid_t)a1, (struct Trapframe *)a2);
+    } else if (syscallno == SYS_gettime) {
+        return sys_gettime();
     }
     //Your code here end
-=======
-    // LAB 8: Your code here
-    // LAB 9: Your code here
-    // LAB 11: Your code here
-    // LAB 12: Your code here
-
->>>>>>> lab12
     return -E_NO_SYS;
 }

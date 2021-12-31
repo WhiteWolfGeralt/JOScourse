@@ -152,6 +152,10 @@ trap_init(void) {
     idt[T_SIMDERR] = GATE(0, GD_KT, (uint64_t)&thdlr19, 0);
     extern void (*thdlr48)(void);
     idt[T_SYSCALL] = GATE(0, GD_KT, (uint64_t)&thdlr48, 3);
+    extern void (*kbd_thdlr)(void);
+    idt[IRQ_OFFSET + IRQ_KBD] = GATE(0, GD_KT, (uintptr_t)(&kbd_thdlr), 3);
+    extern void (*serial_thdlr)(void);
+    idt[IRQ_OFFSET + IRQ_SERIAL] = GATE(0, GD_KT, (uintptr_t)(&serial_thdlr), 3);
 
     /* Setup #PF handler dedicated stack
      * It should be switched on #PF because
@@ -298,15 +302,13 @@ trap_dispatch(struct Trapframe *tf) {
         return;
     case IRQ_OFFSET + IRQ_TIMER:
     case IRQ_OFFSET + IRQ_CLOCK:
-<<<<<<< HEAD
-=======
         // LAB 12: Your code here
         // LAB 5: Your code here
->>>>>>> lab12
         // LAB 4: Your code here
-        //rtc_timer_pic_handle();
-        // LAB 5: Your code here
+        vsys[VSYS_gettime] = gettime();
         timer_for_schedule->handle_interrupts();
+        rtc_check_status();
+        pic_send_eoi(IRQ_CLOCK);
         sched_yield();
         return;
         /* Handle keyboard and serial interrupts. */
