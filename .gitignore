@@ -30,3 +30,12 @@
 /LoaderPkg/efibuild.sh
 /LoaderPkg/mtoc-mac64.sha256
 /.idea
+
+LoaderPkg
+OsDebug
+prog
+user
+_clang-format
+CODING
+.dir-locals.el
+.gdbinit.tmpl
